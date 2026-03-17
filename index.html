@@ -3,94 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPX Trail Splitter | Pro Edition</title>
+    <title>GPX Trail Splitter | Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 100%; width: 100%; z-index: 1; background: #cbd5e1; }
+        #map { height: 100%; width: 100%; z-index: 1; background: #e2e8f0; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .selected-row { background-color: #f8fafc; border-left: 4px solid #2563eb !important; }
-        .drag-over { border-color: #2563eb !important; background-color: #eff6ff !important; }
-        .toast { transition: opacity 0.3s ease; }
+        .selected-row { background-color: #f0f7ff; border-left: 4px solid #2563eb !important; }
+        .drag-active { border-color: #2563eb !important; background-color: #eff6ff !important; transform: scale(1.02); }
+        #dropzone { transition: all 0.2s ease-in-out; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans overflow-hidden">
 
-    <!-- Error Toast -->
-    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[2000] bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl text-sm font-bold opacity-0 pointer-events-none transition-opacity">
-        Invalid GPX File
+    <!-- Error/Info Toast -->
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[2000] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl text-xs font-bold opacity-0 pointer-events-none transition-opacity uppercase tracking-widest">
+        File Loaded Successfully
     </div>
 
     <!-- Header -->
-    <nav class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm relative z-10">
+    <nav class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm relative z-10">
         <div class="flex items-center gap-3">
-            <div class="bg-blue-600 p-1.5 rounded-lg shadow-inner">
+            <div class="bg-blue-600 p-1.5 rounded-lg shadow-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
             </div>
-            <h1 class="text-xl font-black text-slate-800 tracking-tight italic">GPX <span class="text-blue-600">SPLITTER</span></h1>
+            <h1 class="text-xl font-black text-slate-800 tracking-tighter uppercase">GPX <span class="text-blue-600">Splitter</span></h1>
         </div>
         
         <div class="flex items-center gap-4">
-            <button id="downloadBtn" class="hidden bg-slate-900 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor font-bold">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                EXPORT SELECTED (.ZIP)
+            <button id="downloadBtn" class="hidden bg-blue-600 text-white px-6 py-2.5 rounded-full text-xs font-black hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg active:scale-95 uppercase tracking-widest">
+                Export Selected (.ZIP)
             </button>
         </div>
     </nav>
 
-    <main class="flex h-[calc(100vh-64px)]">
+    <main class="flex h-[calc(100vh-73px)]">
         
         <!-- Sidebar -->
-        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-xl z-20">
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20">
             <!-- Dropzone -->
             <div class="p-4">
-                <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-400 transition-all cursor-pointer bg-slate-50">
+                <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer bg-slate-50 hover:bg-white transition-all group">
                     <input type="file" id="fileInput" class="hidden" accept=".gpx">
-                    <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Step 1</p>
-                    <p class="text-sm font-bold text-slate-700">Drop GPX Here</p>
+                    <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    <p class="text-[11px] font-black text-slate-500 uppercase tracking-widest">Drop GPX File</p>
                 </div>
             </div>
 
-            <!-- List Header Controls -->
-            <div id="listControls" class="hidden px-4 py-3 bg-slate-50 border-y border-slate-100 flex justify-between items-center">
-                <button id="selectAll" class="text-[10px] font-black text-blue-600 uppercase hover:text-blue-800 transition-colors">Select All</button>
+            <!-- List Controls -->
+            <div id="listControls" class="hidden px-5 py-3 bg-slate-50 border-y border-slate-100 flex justify-between items-center">
+                <button id="selectAll" class="text-[10px] font-black text-blue-600 uppercase hover:underline">Select All</button>
                 <span id="counter" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">0 Segments</span>
-                <button id="selectNone" class="text-[10px] font-black text-slate-400 uppercase hover:text-red-500 transition-colors">Clear</button>
+                <button id="selectNone" class="text-[10px] font-black text-slate-400 uppercase hover:text-red-500">Clear</button>
             </div>
 
             <!-- The List -->
             <div id="sectionList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-50">
                 <div class="p-12 text-center text-slate-300">
-                    <svg class="w-12 h-12 mx-auto mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
-                    <p class="text-xs font-bold uppercase tracking-widest">Waiting for data...</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">Ready for Import</p>
                 </div>
             </div>
         </aside>
 
-        <!-- Map Container -->
+        <!-- Map -->
         <section class="flex-1 relative">
             <div id="map"></div>
             
-            <!-- Floating Map Actions -->
-            <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-                <button id="resetView" class="bg-white p-2 rounded-lg shadow-md hover:bg-slate-50 border border-slate-200" title="Reset View">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Selection Overlay -->
-            <div id="mapOverlay" class="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 backdrop-blur-md text-white px-5 py-4 rounded-2xl shadow-2xl hidden min-w-[200px] border border-white/10">
-                <h3 id="overlayName" class="font-black text-sm uppercase tracking-tight mb-1 truncate">Section Name</h3>
-                <p id="overlayMeta" class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">-</p>
+            <!-- Map Overlay Info -->
+            <div id="mapOverlay" class="absolute bottom-8 left-8 z-[1000] bg-slate-900/90 backdrop-blur text-white p-5 rounded-2xl shadow-2xl hidden min-w-[260px] border border-white/10">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 id="overlayName" class="font-black text-sm uppercase tracking-tight truncate pr-4">Section Name</h3>
+                    <button id="singleDownload" class="bg-blue-600 p-1.5 rounded-md hover:bg-blue-500 transition-colors" title="Download just this section">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-width="2.5"/></svg>
+                    </button>
+                </div>
+                <p id="overlayMeta" class="text-[10px] text-blue-400 font-bold uppercase tracking-[0.1em]">-</p>
             </div>
         </section>
 
@@ -100,12 +91,21 @@
 
     <script>
         /**
-         * APPLICATION STATE & LOGIC
+         * GLOBAL DRAG & DROP FIX
+         * Prevents the browser from opening the file if dropped outside the box
          */
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            window.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
         const App = {
             map: null,
             sections: [],
             currentLayer: null,
+            selectedIndex: null,
             
             init() {
                 this.initMap();
@@ -130,7 +130,7 @@
                 });
 
                 terrain.addTo(this.map);
-                L.control.layers({ "Terrain": terrain, "Satellite": satellite }, null, { position: 'topleft' }).addTo(this.map);
+                L.control.layers({ "Google Terrain": terrain, "Google Satellite": satellite }, null, { position: 'topleft' }).addTo(this.map);
             },
 
             bindEvents() {
@@ -140,20 +140,18 @@
                 dz.onclick = () => fi.click();
                 fi.onchange = (e) => this.handleFile(e.target.files[0]);
 
-                // Drag & Drop
-                document.body.ondragover = (e) => { e.preventDefault(); dz.classList.add('drag-over'); };
-                document.body.ondragleave = (e) => { e.preventDefault(); dz.classList.remove('drag-over'); };
-                document.body.ondrop = (e) => {
-                    e.preventDefault();
-                    dz.classList.remove('drag-over');
+                // Visual feedback for dropzone
+                dz.ondragover = () => dz.classList.add('drag-active');
+                dz.ondragleave = () => dz.classList.remove('drag-active');
+                dz.ondrop = (e) => {
+                    dz.classList.remove('drag-active');
                     if (e.dataTransfer.files.length) this.handleFile(e.dataTransfer.files[0]);
                 };
 
-                // Selection
                 document.getElementById('selectAll').onclick = () => this.toggleAll(true);
                 document.getElementById('selectNone').onclick = () => this.toggleAll(false);
                 document.getElementById('downloadBtn').onclick = () => this.exportZip();
-                document.getElementById('resetView').onclick = () => this.resetView();
+                document.getElementById('singleDownload').onclick = () => this.exportSingle();
             },
 
             showToast(msg) {
@@ -165,41 +163,37 @@
 
             async handleFile(file) {
                 if (!file || !file.name.toLowerCase().endsWith('.gpx')) {
-                    return this.showToast("Please upload a .gpx file");
+                    return this.showToast("Unsupported File Format");
                 }
 
-                const text = await file.text();
-                const parser = new DOMParser();
-                const xml = parser.parseFromString(text, "text/xml");
-                
-                if (xml.getElementsByTagName("parsererror").length) {
-                    return this.showToast("Error parsing GPX XML");
+                try {
+                    const text = await file.text();
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, "text/xml");
+                    
+                    this.sections = [];
+                    this.parseElements(xml, 'trk', 'trkpt');
+                    this.parseElements(xml, 'rte', 'rtept');
+
+                    if (this.sections.length === 0) return this.showToast("No trails found in file");
+
+                    this.renderList();
+                    this.showToast(`${this.sections.length} Sections Loaded`);
+                } catch (e) {
+                    this.showToast("Error processing GPX");
                 }
-
-                this.sections = [];
-                this.parseElements(xml, 'trk', 'trkpt');
-                this.parseElements(xml, 'rte', 'rtept');
-
-                if (this.sections.length === 0) {
-                    return this.showToast("No tracks or routes found in file");
-                }
-
-                this.renderList();
             },
 
             parseElements(xml, tag, ptTag) {
                 Array.from(xml.getElementsByTagName(tag)).forEach((el, i) => {
                     const name = el.getElementsByTagName('name')[0]?.textContent || `${tag.toUpperCase()} ${i + 1}`;
                     const points = [];
-                    
-                    // Robust parsing: handles nested trkseg
                     const pts = el.getElementsByTagName(ptTag);
                     for (let p of pts) {
                         const lat = parseFloat(p.getAttribute('lat'));
                         const lon = parseFloat(p.getAttribute('lon'));
                         if (!isNaN(lat) && !isNaN(lon)) points.push([lat, lon]);
                     }
-
                     if (points.length > 0) {
                         this.sections.push({ name, points, type: tag === 'trk' ? 'TRACK' : 'ROUTE' });
                     }
@@ -217,10 +211,10 @@
                     const div = document.createElement('div');
                     div.className = "p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-l-4 border-transparent transition-all group";
                     div.innerHTML = `
-                        <input type="checkbox" class="w-4 h-4 rounded-md border-slate-300 text-blue-600 cursor-pointer" data-index="${i}">
+                        <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" data-index="${i}">
                         <div class="flex-1 min-w-0">
-                            <p class="text-[11px] font-black text-slate-800 truncate uppercase">${sec.name}</p>
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">${sec.points.length.toLocaleString()} Nodes • ${sec.type}</p>
+                            <p class="text-[10px] font-black text-slate-800 truncate uppercase">${sec.name}</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">${sec.points.length.toLocaleString()} pts • ${sec.type}</p>
                         </div>
                     `;
                     div.onclick = (e) => {
@@ -235,64 +229,21 @@
             },
 
             preview(index) {
+                this.selectedIndex = index;
                 const sec = this.sections[index];
                 if (this.currentLayer) this.map.removeLayer(this.currentLayer);
 
                 this.currentLayer = L.polyline(sec.points, {
                     color: '#2563eb',
-                    weight: 4,
-                    smoothFactor: 1.5
+                    weight: 5,
+                    smoothFactor: 1
                 }).addTo(this.map);
 
-                this.map.fitBounds(this.currentLayer.getBounds(), { padding: [50, 50], animate: true });
+                this.map.fitBounds(this.currentLayer.getBounds(), { padding: [50, 50] });
 
                 document.getElementById('mapOverlay').classList.remove('hidden');
                 document.getElementById('overlayName').textContent = sec.name;
-                document.getElementById('overlayMeta').textContent = `${sec.type} • ${sec.points.length.toLocaleString()} POINTS`;
+                document.getElementById('overlayMeta').textContent = `${sec.type} • ${sec.points.length.toLocaleString()} COORDS`;
             },
 
             toggleAll(state) {
-                document.querySelectorAll('#sectionList input[type="checkbox"]').forEach(cb => cb.checked = state);
-            },
-
-            resetView() {
-                if (this.currentLayer) this.map.fitBounds(this.currentLayer.getBounds());
-                else this.map.setView([45.0, 10.0], 6);
-            },
-
-            async exportZip() {
-                const selected = Array.from(document.querySelectorAll('#sectionList input:checked')).map(cb => this.sections[cb.dataset.index]);
-                if (!selected.length) return this.showToast("Select segments first");
-
-                const zip = new JSZip();
-                selected.forEach(sec => {
-                    const gpx = this.generateGPX(sec);
-                    const filename = sec.name.replace(/[/\\?%*:|"<>]/g, '-') + '.gpx';
-                    zip.file(filename, gpx);
-                });
-
-                const content = await zip.generateAsync({ type: "blob" });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = `GPX_Export_${new Date().getTime()}.zip`;
-                link.click();
-            },
-
-            generateGPX(sec) {
-                const pts = sec.points.map(p => `      <${sec.type === 'TRACK' ? 'trkpt' : 'rtept'} lat="${p[0]}" lon="${p[1]}"></${sec.type === 'TRACK' ? 'trkpt' : 'rtept'}>`).join('\n');
-                const body = sec.type === 'TRACK' 
-                    ? `<trk><name>${sec.name}</name><trkseg>\n${pts}\n</trkseg></trk>`
-                    : `<rte><name>${sec.name}</name>\n${pts}\n</rte>`;
-
-                return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GPX Trail Splitter" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>${sec.name}</name></metadata>
-  ${body}
-</gpx>`;
-            }
-        };
-
-        App.init();
-    </script>
-</body>
-</html>
