@@ -3,82 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPX Trail Splitter</title>
+    <title>GPX Trail Splitter | Pro Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 100%; width: 100%; z-index: 1; background: #e5e7eb; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        #map { height: 100%; width: 100%; z-index: 1; background: #cbd5e1; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .selected-row { background-color: #f0f9ff; border-left: 4px solid #0284c7 !important; }
-        /* Spinner for loading state */
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .selected-row { background-color: #f8fafc; border-left: 4px solid #2563eb !important; }
+        .drag-over { border-color: #2563eb !important; background-color: #eff6ff !important; }
+        .toast { transition: opacity 0.3s ease; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans overflow-hidden">
+<body class="bg-slate-100 text-slate-900 font-sans overflow-hidden">
+
+    <!-- Error Toast -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[2000] bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl text-sm font-bold opacity-0 pointer-events-none transition-opacity">
+        Invalid GPX File
+    </div>
 
     <!-- Header -->
     <nav class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm relative z-10">
         <div class="flex items-center gap-3">
-            <div class="bg-slate-800 p-2 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            <div class="bg-blue-600 p-1.5 rounded-lg shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </div>
-            <h1 class="text-lg font-bold text-slate-800 tracking-tight">GPX Trail Splitter</h1>
+            <h1 class="text-xl font-black text-slate-800 tracking-tight italic">GPX <span class="text-blue-600">SPLITTER</span></h1>
         </div>
+        
         <div class="flex items-center gap-4">
-            <div id="loadingStatus" class="hidden flex items-center gap-2 text-sm text-slate-500">
-                <div class="loader"></div> <span>Processing...</span>
-            </div>
-            <button id="downloadSelected" class="hidden bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md">
-                Download Selected (.zip)
+            <button id="downloadBtn" class="hidden bg-slate-900 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor font-bold">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                EXPORT SELECTED (.ZIP)
             </button>
         </div>
     </nav>
 
-    <main class="flex h-[calc(100vh-60px)]">
+    <main class="flex h-[calc(100vh-64px)]">
         
         <!-- Sidebar -->
-        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0">
-            <div class="p-4 border-b border-slate-100">
-                <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer">
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-xl z-20">
+            <!-- Dropzone -->
+            <div class="p-4">
+                <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-400 transition-all cursor-pointer bg-slate-50">
                     <input type="file" id="fileInput" class="hidden" accept=".gpx">
-                    <p class="text-sm font-bold text-slate-600">Load GPX File</p>
-                    <p class="text-[10px] text-slate-400 uppercase mt-1">Drag & Drop</p>
+                    <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Step 1</p>
+                    <p class="text-sm font-bold text-slate-700">Drop GPX Here</p>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-hidden flex flex-col">
-                <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Segments</span>
-                    <span id="counter" class="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">0</span>
-                </div>
-                <div id="sectionList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 italic text-slate-400 text-sm text-center p-4">
-                    Upload a file to begin
+            <!-- List Header Controls -->
+            <div id="listControls" class="hidden px-4 py-3 bg-slate-50 border-y border-slate-100 flex justify-between items-center">
+                <button id="selectAll" class="text-[10px] font-black text-blue-600 uppercase hover:text-blue-800 transition-colors">Select All</button>
+                <span id="counter" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">0 Segments</span>
+                <button id="selectNone" class="text-[10px] font-black text-slate-400 uppercase hover:text-red-500 transition-colors">Clear</button>
+            </div>
+
+            <!-- The List -->
+            <div id="sectionList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-50">
+                <div class="p-12 text-center text-slate-300">
+                    <svg class="w-12 h-12 mx-auto mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                    <p class="text-xs font-bold uppercase tracking-widest">Waiting for data...</p>
                 </div>
             </div>
         </aside>
 
-        <!-- Map -->
+        <!-- Map Container -->
         <section class="flex-1 relative">
             <div id="map"></div>
             
-            <!-- Info Card (Bottom Left) -->
-            <div id="mapOverlay" class="absolute bottom-6 left-6 z-[1000] bg-white/95 backdrop-blur shadow-2xl rounded-xl border border-slate-200 p-4 hidden min-w-[240px]">
-                <h3 id="overlayName" class="font-bold text-slate-800 text-sm mb-2 truncate max-w-[200px]">Section Name</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-[9px] uppercase font-bold text-slate-400">Nodes</p>
-                        <p id="overlayPoints" class="text-xs font-mono text-slate-700">-</p>
-                    </div>
-                    <div>
-                        <p class="text-[9px] uppercase font-bold text-slate-400">Type</p>
-                        <p id="overlayType" class="text-xs font-mono text-slate-700">-</p>
-                    </div>
-                </div>
+            <!-- Floating Map Actions -->
+            <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+                <button id="resetView" class="bg-white p-2 rounded-lg shadow-md hover:bg-slate-50 border border-slate-200" title="Reset View">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Selection Overlay -->
+            <div id="mapOverlay" class="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 backdrop-blur-md text-white px-5 py-4 rounded-2xl shadow-2xl hidden min-w-[200px] border border-white/10">
+                <h3 id="overlayName" class="font-black text-sm uppercase tracking-tight mb-1 truncate">Section Name</h3>
+                <p id="overlayMeta" class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">-</p>
             </div>
         </section>
 
@@ -87,159 +99,200 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <script>
-        let map;
-        let currentLayer = null;
-        let sections = [];
+        /**
+         * APPLICATION STATE & LOGIC
+         */
+        const App = {
+            map: null,
+            sections: [],
+            currentLayer: null,
+            
+            init() {
+                this.initMap();
+                this.bindEvents();
+            },
 
-        function initMap() {
-            // OPTIMIZATION: preferCanvas: true makes polyline rendering significantly faster
-            map = L.map('map', {
-                center: [41.8719, 12.5674],
-                zoom: 5,
-                preferCanvas: true
-            });
+            initMap() {
+                this.map = L.map('map', { 
+                    center: [45.0, 10.0], 
+                    zoom: 6, 
+                    preferCanvas: true,
+                    zoomControl: false 
+                });
+                
+                L.control.zoom({ position: 'bottomright' }).addTo(this.map);
 
-            const googleTerrain = L.tileLayer('http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
-                maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google'
-            });
-            const googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-                maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google'
-            });
-            const googleStreets = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google'
-            });
+                const terrain = L.tileLayer('https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+                    maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google'
+                });
+                const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                    maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google'
+                });
 
-            googleTerrain.addTo(map);
-            L.control.layers({ "Terrain": googleTerrain, "Satellite": googleSat, "Streets": googleStreets }, null, { position: 'topright' }).addTo(map);
-        }
+                terrain.addTo(this.map);
+                L.control.layers({ "Terrain": terrain, "Satellite": satellite }, null, { position: 'topleft' }).addTo(this.map);
+            },
 
-        window.onload = initMap;
+            bindEvents() {
+                const dz = document.getElementById('dropzone');
+                const fi = document.getElementById('fileInput');
 
-        const fileInput = document.getElementById('fileInput');
-        const dropzone = document.getElementById('dropzone');
-        const sectionList = document.getElementById('sectionList');
+                dz.onclick = () => fi.click();
+                fi.onchange = (e) => this.handleFile(e.target.files[0]);
 
-        dropzone.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) handleUpload(file);
-        };
+                // Drag & Drop
+                document.body.ondragover = (e) => { e.preventDefault(); dz.classList.add('drag-over'); };
+                document.body.ondragleave = (e) => { e.preventDefault(); dz.classList.remove('drag-over'); };
+                document.body.ondrop = (e) => {
+                    e.preventDefault();
+                    dz.classList.remove('drag-over');
+                    if (e.dataTransfer.files.length) this.handleFile(e.dataTransfer.files[0]);
+                };
 
-        async function handleUpload(file) {
-            document.getElementById('loadingStatus').classList.remove('hidden');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                await parseGPX(e.target.result);
-                document.getElementById('loadingStatus').classList.add('hidden');
-            };
-            reader.readAsText(file);
-        }
+                // Selection
+                document.getElementById('selectAll').onclick = () => this.toggleAll(true);
+                document.getElementById('selectNone').onclick = () => this.toggleAll(false);
+                document.getElementById('downloadBtn').onclick = () => this.exportZip();
+                document.getElementById('resetView').onclick = () => this.resetView();
+            },
 
-        function parseGPX(xmlText) {
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(xmlText, "text/xml");
-            sections = [];
+            showToast(msg) {
+                const t = document.getElementById('toast');
+                t.textContent = msg;
+                t.style.opacity = '1';
+                setTimeout(() => t.style.opacity = '0', 3000);
+            },
 
-            // Helper to parse coordinates once and store them
-            const extractCoords = (selector, ptSelector) => {
-                xml.querySelectorAll(selector).forEach((el, i) => {
-                    const name = el.querySelector('name')?.textContent || `${selector} ${i+1}`;
-                    const points = Array.from(el.querySelectorAll(ptSelector)).map(pt => [
-                        parseFloat(pt.getAttribute('lat')),
-                        parseFloat(pt.getAttribute('lon'))
-                    ]);
+            async handleFile(file) {
+                if (!file || !file.name.toLowerCase().endsWith('.gpx')) {
+                    return this.showToast("Please upload a .gpx file");
+                }
+
+                const text = await file.text();
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "text/xml");
+                
+                if (xml.getElementsByTagName("parsererror").length) {
+                    return this.showToast("Error parsing GPX XML");
+                }
+
+                this.sections = [];
+                this.parseElements(xml, 'trk', 'trkpt');
+                this.parseElements(xml, 'rte', 'rtept');
+
+                if (this.sections.length === 0) {
+                    return this.showToast("No tracks or routes found in file");
+                }
+
+                this.renderList();
+            },
+
+            parseElements(xml, tag, ptTag) {
+                Array.from(xml.getElementsByTagName(tag)).forEach((el, i) => {
+                    const name = el.getElementsByTagName('name')[0]?.textContent || `${tag.toUpperCase()} ${i + 1}`;
+                    const points = [];
+                    
+                    // Robust parsing: handles nested trkseg
+                    const pts = el.getElementsByTagName(ptTag);
+                    for (let p of pts) {
+                        const lat = parseFloat(p.getAttribute('lat'));
+                        const lon = parseFloat(p.getAttribute('lon'));
+                        if (!isNaN(lat) && !isNaN(lon)) points.push([lat, lon]);
+                    }
+
                     if (points.length > 0) {
-                        sections.push({ name, points, type: selector === 'trk' ? 'Track' : 'Route', element: el });
+                        this.sections.push({ name, points, type: tag === 'trk' ? 'TRACK' : 'ROUTE' });
                     }
                 });
-            };
+            },
 
-            extractCoords('trk', 'trkpt');
-            extractCoords('rte', 'rtept');
-            renderList();
-        }
+            renderList() {
+                const list = document.getElementById('sectionList');
+                list.innerHTML = '';
+                document.getElementById('listControls').classList.remove('hidden');
+                document.getElementById('downloadBtn').classList.remove('hidden');
+                document.getElementById('counter').textContent = `${this.sections.length} Segments`;
 
-        function renderList() {
-            sectionList.innerHTML = '';
-            sectionList.classList.remove('italic', 'text-center', 'p-4');
-            document.getElementById('counter').textContent = sections.length;
-            document.getElementById('downloadSelected').classList.remove('hidden');
+                this.sections.forEach((sec, i) => {
+                    const div = document.createElement('div');
+                    div.className = "p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-l-4 border-transparent transition-all group";
+                    div.innerHTML = `
+                        <input type="checkbox" class="w-4 h-4 rounded-md border-slate-300 text-blue-600 cursor-pointer" data-index="${i}">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[11px] font-black text-slate-800 truncate uppercase">${sec.name}</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">${sec.points.length.toLocaleString()} Nodes • ${sec.type}</p>
+                        </div>
+                    `;
+                    div.onclick = (e) => {
+                        if (e.target.tagName !== 'INPUT') {
+                            document.querySelectorAll('#sectionList > div').forEach(el => el.classList.remove('selected-row'));
+                            div.classList.add('selected-row');
+                            this.preview(i);
+                        }
+                    };
+                    list.appendChild(div);
+                });
+            },
 
-            sections.forEach((sec, i) => {
-                const item = document.createElement('div');
-                item.className = "p-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-l-4 border-transparent transition-all";
-                item.id = `item-${i}`;
-                item.innerHTML = `
-                    <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" data-index="${i}">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-bold text-slate-700 truncate">${sec.name}</p>
-                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">${sec.points.length} pts</p>
-                    </div>
-                `;
-                item.onclick = (e) => {
-                    if (e.target.tagName !== 'INPUT') {
-                        document.querySelectorAll('#sectionList > div').forEach(el => el.classList.remove('selected-row'));
-                        item.classList.add('selected-row');
-                        previewOnMap(i);
-                    }
-                };
-                sectionList.appendChild(item);
-            });
-        }
+            preview(index) {
+                const sec = this.sections[index];
+                if (this.currentLayer) this.map.removeLayer(this.currentLayer);
 
-        function previewOnMap(index) {
-            const sec = sections[index];
-            
-            // OPTIMIZATION: Remove old layer before drawing new one
-            if (currentLayer) {
-                map.removeLayer(currentLayer);
+                this.currentLayer = L.polyline(sec.points, {
+                    color: '#2563eb',
+                    weight: 4,
+                    smoothFactor: 1.5
+                }).addTo(this.map);
+
+                this.map.fitBounds(this.currentLayer.getBounds(), { padding: [50, 50], animate: true });
+
+                document.getElementById('mapOverlay').classList.remove('hidden');
+                document.getElementById('overlayName').textContent = sec.name;
+                document.getElementById('overlayMeta').textContent = `${sec.type} • ${sec.points.length.toLocaleString()} POINTS`;
+            },
+
+            toggleAll(state) {
+                document.querySelectorAll('#sectionList input[type="checkbox"]').forEach(cb => cb.checked = state);
+            },
+
+            resetView() {
+                if (this.currentLayer) this.map.fitBounds(this.currentLayer.getBounds());
+                else this.map.setView([45.0, 10.0], 6);
+            },
+
+            async exportZip() {
+                const selected = Array.from(document.querySelectorAll('#sectionList input:checked')).map(cb => this.sections[cb.dataset.index]);
+                if (!selected.length) return this.showToast("Select segments first");
+
+                const zip = new JSZip();
+                selected.forEach(sec => {
+                    const gpx = this.generateGPX(sec);
+                    const filename = sec.name.replace(/[/\\?%*:|"<>]/g, '-') + '.gpx';
+                    zip.file(filename, gpx);
+                });
+
+                const content = await zip.generateAsync({ type: "blob" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `GPX_Export_${new Date().getTime()}.zip`;
+                link.click();
+            },
+
+            generateGPX(sec) {
+                const pts = sec.points.map(p => `      <${sec.type === 'TRACK' ? 'trkpt' : 'rtept'} lat="${p[0]}" lon="${p[1]}"></${sec.type === 'TRACK' ? 'trkpt' : 'rtept'}>`).join('\n');
+                const body = sec.type === 'TRACK' 
+                    ? `<trk><name>${sec.name}</name><trkseg>\n${pts}\n</trkseg></trk>`
+                    : `<rte><name>${sec.name}</name>\n${pts}\n</rte>`;
+
+                return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Trail Splitter" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${sec.name}</name></metadata>
+  ${body}
+</gpx>`;
             }
-
-            // OPTIMIZATION: smoothFactor ignores points that are too close at current zoom
-            currentLayer = L.polyline(sec.points, {
-                color: '#0284c7',
-                weight: 4,
-                opacity: 0.9,
-                smoothFactor: 1.5 
-            }).addTo(map);
-
-            // Instant fit bounds
-            const bounds = currentLayer.getBounds();
-            if (bounds.isValid()) {
-                map.fitBounds(bounds, { padding: [40, 40], animate: false });
-            }
-
-            document.getElementById('mapOverlay').classList.remove('hidden');
-            document.getElementById('overlayName').textContent = sec.name;
-            document.getElementById('overlayPoints').textContent = sec.points.length.toLocaleString();
-            document.getElementById('overlayType').textContent = sec.type;
-        }
-
-        document.getElementById('downloadSelected').onclick = async () => {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-            if (checkboxes.length === 0) return alert("Please select sections from the list first.");
-
-            const zip = new JSZip();
-            checkboxes.forEach(cb => {
-                const idx = cb.dataset.index;
-                const sec = sections[idx];
-                zip.file(`${sec.name.replace(/[/\\?%*:|"<>]/g, '-')}.gpx`, createGPX(sec));
-            });
-
-            const content = await zip.generateAsync({type:"blob"});
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(content);
-            link.download = "TET_Sections.zip";
-            link.click();
         };
 
-        function createGPX(sec) {
-            return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GPX Trail Splitter" xmlns="http://www.topografix.com/GPX/1/1">
-<metadata><name>${sec.name}</name></metadata>
-${new XMLSerializer().serializeToString(sec.element)}
-</gpx>`;
-        }
+        App.init();
     </script>
 </body>
 </html>
